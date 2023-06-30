@@ -6,7 +6,8 @@ use clap::{
 };
 use clap_complete::Shell;
 #[cfg(feature = "wasm_opt")]
-use contract_build::OptimizationPasses;
+use contract_build::{OptimizationPasses, VerbosityFlags};
+use contract_extrinsics::BalanceVariant;
 
 use serde::Deserialize;
 use std::{ffi::OsString, path::PathBuf, process::exit};
@@ -44,6 +45,67 @@ pub enum Commands {
 
     #[command(about = "Create a new Solang project")]
     New(New),
+
+    #[command(about = "Upload a contract to the target chain")]
+    Upload(Upload),
+}
+
+#[derive(Args, Clone)]
+pub struct Upload {
+    /// Target network to upload contract to.
+    #[arg(name = "TARGETNAME",required= true, long = "target", value_parser = ["solana", "substrate", "evm"], help = "Target to build for [possible values: solana, substrate]", num_args = 1, hide_possible_values = true)]
+    pub target_name: Option<String>,
+
+    /// Path to a contract build artifact file
+    #[clap(value_parser, conflicts_with = "manifest_path")]
+    pub file: Option<PathBuf>,
+
+    /// Path to the `Cargo.toml` of the contract.
+    #[clap(long, value_parser)]
+    pub manifest_path: Option<PathBuf>,
+
+    /// Specifics to substrate contract uploading
+
+    /// Websockets url of a substrate node.
+    #[clap(
+        name = "url",
+        long,
+        value_parser,
+        default_value = "ws://localhost:9944"
+    )]
+    pub url: Option<url::Url>,
+
+    /// Secret key URI for the account deploying the contract.
+    #[clap(name = "suri", long, short)]
+    pub suri: Option<String>,
+
+    /// Password for the secret key.
+    #[clap(name = "password", long, short)]
+    pub password: Option<String>,
+
+    #[clap(flatten)]
+    pub verbosity: Option<VerbosityFlags>,
+
+    /// Submit the extrinsic for on-chain execution.
+    #[clap(short('x'), long)]
+    pub execute: Option<bool>,
+
+    /// The maximum amount of balance that can be charged from the caller to pay for the
+    /// storage. consumed.
+    #[clap(long)]
+    pub storage_deposit_limit: Option<BalanceVariant>,
+
+    /// Before submitting a transaction, do not dry-run it via RPC first.
+    #[clap(long)]
+    pub skip_dry_run: Option<bool>,
+
+    /// Before submitting a transaction, do not ask the user for confirmation.
+    #[clap(short('y'), long)]
+    pub skip_confirm: Option<bool>,
+
+    /// Export the call output in JSON format.
+    #[clap(long, conflicts_with = "verbose")]
+    pub output_json: bool,
 }
 
 #[derive(Args)]

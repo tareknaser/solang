@@ -4,6 +4,7 @@ use clap::{Command, CommandFactory, FromArgMatches};
 
 use clap_complete::generate;
 use cli::PackageTrait;
+use contract_extrinsics::{ExtrinsicOpts, UploadCommand};
 use itertools::Itertools;
 use solang::{
     abi,
@@ -24,7 +25,7 @@ use std::{
 
 use crate::cli::{
     imports_arg, options_arg, target_arg, Cli, Commands, Compile, CompilerOutput, Doc, New,
-    ShellComplete,
+    ShellComplete, Upload,
 };
 
 mod cli;
@@ -61,6 +62,7 @@ fn main() {
         Commands::LanguageServer(server_args) => languageserver::start_server(&server_args),
         Commands::Idl(idl_args) => idl::idl(&idl_args),
         Commands::New(new_arg) => new_command(new_arg),
+        Commands::Upload(upload_arg) => upload_command(upload_arg),
     }
 }
 
@@ -116,6 +118,106 @@ fn new_command(args: New) {
     toml_file
         .write_all(toml_content.to_string().as_bytes())
         .expect("failed to write example toml configuration file");
+}
+
+fn upload_command(args: Upload) {
+    // Use user defined manifest path or default path
+    let manifest_path = if let Some(user_manifest_path) = args.manifest_path {
+        user_manifest_path
+    } else {
+        PathBuf::from("solang.toml")
+    };
+
+    // Read the contents of the solang.toml file
+    let mut file = File::open(manifest_path).expect("Failed to open the manifest");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("Failed to read solang.toml");
+
+    // Parse the TOML contents and extract the input_files field and target name
+    let parsed_toml: toml::Value = toml::from_str(&contents).expect("Failed to parse solang.toml");
+
+    // Use user defined target or get it from the manifest
+    let target = if let Some(target_name) = args.target_name {
+        target_name
+    } else {
+        parsed_toml["target"]["name"]
+            .as_str()
+            .expect("target name is not a string")
+            .to_string()
+    };
+
+    // Use user defined contract or get all contracts from the manifest
+    let contracts = if let Some(file) = args.file {
+        vec![file]
+    } else {
+        parsed_toml["package"]["contracts"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|contract| contract.as_str())
+                    .map(|contract| {
+                        let mut path = PathBuf::from(contract);
+                        path.set_extension("contract");
+                        path
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .expect("Failed to parse solang.toml, contracts field is not an array")
+    };
+
+    // Loop over the contracts and upload them
+    for contract in contracts {
+        match target.as_str() {
+            "substrate" => {
+                // create an UploadCommand instance with the arguments specified by the user
+                // pass the contract to UploadContract
+                // call UploadContract.run()
+
+                let extrinsics = ExtrinsicOpts {
+                    file: Some(contract.clone()),
+                    manifest_path: None,
+                    url: args
+                        .url
+                        .clone()
+                        .expect("url is required for substrate target"),
+                    suri: args
+                        .suri
+                        .clone()
+                        .expect("suri is required for substrate target"),
+                    password: args.password.clone(),
+                    verbosity: args
+                        .verbosity
+                        .clone()
+                        .expect("verbosity is required for substrate target"),
+                    execute: args
+                        .execute
+                        .expect("execute is required for substrate target"),
+                    storage_deposit_limit: args.storage_deposit_limit.clone(),
+                    skip_dry_run: args
+                        .skip_dry_run
+                        .expect("skip_dry_run is required for substrate target"),
+                    skip_confirm: args
+                        .skip_confirm
+                        .expect("skip_confirm is required for substrate target"),
+                };
+                let upload_contract = UploadCommand {
+                    extrinsic_opts: extrinsics,
+                    output_json: args.output_json,
+                };
+                upload_contract.run();
+            }
+            "solana" => {
+                eprintln!("Solana target is not supported yet!");
+                exit(1);
+            }
+            "evm" => {
+                eprintln!("EVM target is not supported yet!");
+                exit(1);
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 fn doc(doc_args: Doc) {
