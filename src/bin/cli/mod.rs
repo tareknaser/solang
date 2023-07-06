@@ -18,6 +18,8 @@ use solang::{
     Target,
 };
 
+use contract_extrinsics::{CallCommand, InstantiateCommand, RemoveCommand, UploadCommand};
+
 mod test;
 #[derive(Parser)]
 #[command(author = env!("CARGO_PKG_AUTHORS"), version = concat!("version ", env!("SOLANG_VERSION")), about = env!("CARGO_PKG_DESCRIPTION"), subcommand_required = true)]
@@ -45,6 +47,20 @@ pub enum Commands {
 
     #[command(about = "Create a new Solang project")]
     New(New),
+
+    #[command(about = "Interact with polkadot contracts on chain")]
+    Polkadot {
+        #[clap(subcommand)]
+        action: PolkadotAction,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PolkadotAction {
+    Upload(UploadCommand),
+    Instantiate(InstantiateCommand),
+    Call(CallCommand),
+    Remove(RemoveCommand),
 }
 
 #[derive(Args)]

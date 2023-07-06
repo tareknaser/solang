@@ -3,7 +3,7 @@
 use clap::{Command, CommandFactory, FromArgMatches};
 
 use clap_complete::generate;
-use cli::PackageTrait;
+use cli::{PackageTrait, PolkadotAction};
 use itertools::Itertools;
 use solang::{
     abi,
@@ -62,6 +62,12 @@ fn main() {
         Commands::LanguageServer(server_args) => languageserver::start_server(&server_args),
         Commands::Idl(idl_args) => idl::idl(&idl_args),
         Commands::New(new_arg) => new_command(new_arg),
+        Commands::Polkadot { action } => match action {
+            PolkadotAction::Upload(upload_args) => upload_args.run().unwrap(),
+            PolkadotAction::Instantiate(instantiate_args) => instantiate_args.run().unwrap(),
+            PolkadotAction::Call(call_args) => call_args.run().unwrap(),
+            PolkadotAction::Remove(remove_args) => remove_args.run().unwrap(),
+        },
     }
 }
 
