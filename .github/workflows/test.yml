@@ -403,6 +403,8 @@ jobs:
     runs-on: solang-ubuntu-latest
     needs: linux-x86-64
     steps:
+    - name: Install Rust 1.81.0
+      uses: dtolnay/rust-toolchain@1.81.0
     - name: Checkout sources
       uses: actions/checkout@v4
       with:
